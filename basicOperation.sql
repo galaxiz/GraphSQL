@@ -1,4 +1,8 @@
 /*
+ * Basic Operations
+ */
+
+/*
  * GIM-V Implementation.
  * 
  * Input: the name of tables and name of functions.
@@ -10,7 +14,6 @@
  *
  * Xi Zhao
  */
-
 CREATE OR REPLACE FUNCTION gimv(E TEXT,V TEXT,V2 TEXT, C2 TEXT, 
     CAll TEXT, ASSIGN TEXT, REVERSE INTEGER) RETURNS INTEGER AS $$
 DECLARE
@@ -43,3 +46,26 @@ BEGIN
     RETURN row_affected;
 END
 $$ LANGUAGE plpgsql;
+
+/*
+ * load data
+ * Create table and loading matrix data from file.
+ *
+ * Xi Zhao
+ */
+CREATE OR REPLACE FUNCTION loaddata(filename text,tablename text,val integer) RETURNS VOID AS $body$
+BEGIN
+    EXECUTE format(
+        'CREATE TABLE %s(sid integer, did integer, val numeric);'
+        , $2);
+    IF val=0 THEN
+        EXECUTE format(
+            $$COPY %s(sid,did) FROM '%s' WITH DELIMITER ' '$$
+            ,$2,$1);
+    ELSE
+        EXECUTE format(
+            $$COPY %s(sid,did,val) FROM '%s' WITH DELIMITER ' '$$
+            ,$2,$1);
+    END IF;
+END
+$body$ LANGUAGE plpgsql;

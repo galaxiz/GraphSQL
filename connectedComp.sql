@@ -4,6 +4,7 @@
  * Xi Zhao
  */
 
+
 /*
  * new vector for computing connected component
  * each node i is in set i.
@@ -46,14 +47,23 @@ $$ LANGUAGE plpgsql;
 CREATE OR REPLACE FUNCTION compute_cc(matrix text,vector text) RETURNS VOID AS $$
 DECLARE
 i integer;
+cid integer;
 BEGIN
     --get number of distinct nodes and create set vector
+    EXECUTE format(
+        'SELECT COUNT(*) FROM (SELECT distinct sid from %s UNION SELECT distinct did from %s) as U;'
+        ,$1,$1) INTO cid;
+
+    RAISE NOTICE 'Node count: %',cid;
+    EXECUTE new_vector_cc($2,cid);
 
     --update
     LOOP
         i := gimv($1,$2,$2,'second_val_cc','min','least',0);
         -- for undirected graph, we need to a reverse direction as well.
         i := i + gimv($1,$2,$2,'second_val_cc','min','least',1);
+        
+        RAISE NOTICE 'update: %',i;
         IF i=0 THEN
             EXIT;
         END IF;

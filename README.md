@@ -1,2 +1,4 @@
 GraphSQL
 ========
+
+Course project

@@ -11,7 +11,7 @@
  */
 CREATE OR REPLACE FUNCTION new_vector_cc(text,integer) RETURNS VOID AS $$
 DECLARE
-i integer := 1;
+    i integer := 1;
 BEGIN   
     EXECUTE format(
         'DROP TABLE IF EXISTS %s;
@@ -44,7 +44,7 @@ $$ LANGUAGE plpgsql;
 /*
  * compute components
  */
-CREATE OR REPLACE FUNCTION compute_cc(matrix text,vector text) RETURNS VOID AS $$
+CREATE OR REPLACE FUNCTION compute_cc(matrix text,vector text) RETURNS integer AS $$
 DECLARE
 i integer;
 cid integer;
@@ -68,5 +68,11 @@ BEGIN
             EXIT;
         END IF;
     END LOOP;
+
+    --compute component number
+    EXECUTE format(
+        'SELECT count(distinct val) FROM %s;'
+        , $2) INTO i;
+    return i;
 END
 $$ LANGUAGE plpgsql;

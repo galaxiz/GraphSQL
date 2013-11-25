@@ -49,6 +49,54 @@ $$ LANGUAGE plpgsql;
 
 
 /*
+ * Multiplication bewteen matrix and scalar number
+ *
+ * Xi Zhao
+ */
+CREATE OR REPLACE FUNCTION matrixnummul(target text,num numeric) RETURNS VOID AS $body$
+BEGIN
+    EXECUTE format(
+        'UPDATE %s AS TAR
+        SET val=TAR.val*%s;'
+        ,$1,$2);
+END
+$body$ LANGUAGE plpgsql;
+
+/*
+ * vector addition
+ * add two vector 
+ *
+ * Xi Zhao
+ */
+CREATE OR REPLACE FUNCTION vectoradd(targetvector text,adder text) RETURNS VOID AS $body$
+BEGIN
+    EXECUTE format(
+        'UPDATE %s AS TAR
+        SET val=(TAR.val+AER.val)
+        FROM %s AS AER
+        WHERE TAR.id=AER.id;'
+        ,$1,$2);
+END
+$body$ LANGUAGE plpgsql;
+
+/*
+ * matrix addition
+ * add two matrix 
+ *
+ * Xi Zhao
+ */
+CREATE OR REPLACE FUNCTION maxtrixadd(targetmatrix text,adder text) RETURNS VOID AS $body$
+BEGIN
+    EXECUTE format(
+        'UPDATE %s AS TAR
+        SET val=(TAR.val+AER.val)
+        FROM %s AS AER
+        WHERE TAR.sid=AER.sid and TAR.did=AER.did;'
+        ,$1,$2);
+END
+$body$ LANGUAGE plpgsql;
+
+/*
  * load data
  * Create table and loading matrix data from file.
  *

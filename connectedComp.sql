@@ -4,6 +4,12 @@
  * Xi Zhao
  */
 
+/*
+ * TODO Assumptions:
+ * 1. is a <- b stored?
+ * 2. starting from node 1
+ * 3. no gap in ids.
+ */
 
 /*
  * new vector for computing connected component
@@ -35,7 +41,7 @@ LANGUAGE plpgsql;
 /*
  * combine2 function
  */
-CREATE OR REPLACE FUNCTION second_val_cc(numeric,numeric) RETURNS numeric AS $$
+CREATE OR REPLACE FUNCTION combine2_cc(numeric,numeric) RETURNS numeric AS $$
 BEGIN
     return $2;
 END
@@ -43,6 +49,8 @@ $$ LANGUAGE plpgsql;
 
 /*
  * compute components
+ * TODO how undirected graph is stored. Need parameter to specify that reversed 
+ * is also stored?
  */
 CREATE OR REPLACE FUNCTION compute_cc(matrix text,vector text) RETURNS integer AS $$
 DECLARE
@@ -59,9 +67,9 @@ BEGIN
 
     --update
     LOOP
-        i := gimv($1,$2,$2,'second_val_cc','min','least',0);
+        i := gimv($1,$2,$2,'combine2_cc','min','least',0);
         -- for undirected graph, we need to a reverse direction as well.
-        i := i + gimv($1,$2,$2,'second_val_cc','min','least',1);
+        i := i + gimv($1,$2,$2,'combine2_cc','min','least',1);
         
         RAISE NOTICE 'update: %',i;
         IF i=0 THEN

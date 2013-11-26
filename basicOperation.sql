@@ -15,37 +15,37 @@
  * Xi Zhao
  */
 CREATE OR REPLACE FUNCTION gimv(E TEXT,V TEXT,V2 TEXT, C2 TEXT, 
-    CAll TEXT, ASSIGN TEXT, REVERSE INTEGER) RETURNS INTEGER AS $$
+    CAll TEXT, ASSIGN TEXT, REVERSE INTEGER) RETURNS INTEGER AS $body$
 DECLARE
 row_affected integer;
 BEGIN   
     IF $7=0 THEN
-        EXECUTE format(
-            'Update %s
+        EXECUTE format($s$
+            Update %s
             set val=%s(%s.val,tmp.val)
             FROM    (SELECT %s.sid as id, %s(%s(%s.val,%s.val)) as val
                 FROM %s,%s
                 WHERE %s.did=%s.id
                 GROUP BY %s.sid
             ) as tmp
-            where %s.id=tmp.id and %s.val!=%s(%s.val,tmp.val);'
-            ,$3,$6,$2,$1,$5,$4,$1,$2,$1,$2,$1,$2,$1,$3,$3,$6,$3);
+            where %s.id=tmp.id and %s.val!=%s(%s.val,tmp.val);
+            $s$,$3,$6,$2,$1,$5,$4,$1,$2,$1,$2,$1,$2,$1,$3,$3,$6,$3);
     ELSE
-        EXECUTE format(
-            'Update %s
+        EXECUTE format($s$
+            Update %s
             set val=%s(%s.val,tmp.val)
             FROM    (SELECT %s.did as id, %s(%s(%s.val,%s.val)) as val
                 FROM %s,%s
                 WHERE %s.sid=%s.id
                 GROUP BY %s.did
             ) as tmp
-            where %s.id=tmp.id and %s.val!=%s(%s.val,tmp.val);'
-            ,$3,$6,$2,$1,$5,$4,$1,$2,$1,$2,$1,$2,$1,$3,$3,$6,$3);
+            where %s.id=tmp.id and %s.val!=%s(%s.val,tmp.val);
+            $s$,$3,$6,$2,$1,$5,$4,$1,$2,$1,$2,$1,$2,$1,$3,$3,$6,$3);
     END IF;
     GET DIAGNOSTICS row_affected=ROW_COUNT;
     RETURN row_affected;
 END
-$$ LANGUAGE plpgsql;
+$body$ LANGUAGE plpgsql;
 
 /*
  * Multiplication bewteen matrix and scalar number
@@ -54,10 +54,10 @@ $$ LANGUAGE plpgsql;
  */
 CREATE OR REPLACE FUNCTION matrixnummul(target text,num numeric) RETURNS VOID AS $body$
 BEGIN
-    EXECUTE format(
-        'UPDATE %s AS TAR
-        SET val=TAR.val*%s;'
-        ,$1,$2);
+    EXECUTE format($s$
+        UPDATE %s AS TAR
+        SET val=TAR.val*%s;
+        $s$,$1,$2);
 END
 $body$ LANGUAGE plpgsql;
 
@@ -69,12 +69,12 @@ $body$ LANGUAGE plpgsql;
  */
 CREATE OR REPLACE FUNCTION vectoradd(targetvector text,adder text) RETURNS VOID AS $body$
 BEGIN
-    EXECUTE format(
-        'UPDATE %s AS TAR
+    EXECUTE format($s$
+        UPDATE %s AS TAR
         SET val=(TAR.val+AER.val)
         FROM %s AS AER
-        WHERE TAR.id=AER.id;'
-        ,$1,$2);
+        WHERE TAR.id=AER.id;
+        $s$,$1,$2);
 END
 $body$ LANGUAGE plpgsql;
 
@@ -115,5 +115,33 @@ BEGIN
             $$COPY %s(sid,did,val) FROM '%s' WITH DELIMITER ' '$$
             ,$2,$1);
     END IF;
+END
+$body$ LANGUAGE plpgsql;
+
+/*
+ * vector length
+ * 
+ * Xi Zhao
+ */
+CREATE OR REPLACE FUNCTION vectorlen(v text) RETURNS numeric AS $body$
+DECLARE
+    len numeric:=0;
+BEGIN
+    --compute length
+    EXECUTE format($s$
+        SELECT sum(val*val)
+        FROM %s
+        $s$, $1) INTO len;
+
+    RETURN sqrt(len);
+END
+$body$ LANGUAGE plpgsql;
+
+/*
+ * Matrix matrix multiplication
+ * Xi Zhao
+ */
+CREATE OR REPLACE FUNCTION matrixmul(target text,multiplier text) RETURNS VOID AS $body$
+BEGIN
 END
 $body$ LANGUAGE plpgsql;

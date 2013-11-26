@@ -3,7 +3,16 @@
  *
  * Xi Zhao
  */
-CREATE OR REPLACE FUNCTION compute_bp(adjacencym text,priorv text,hf numeric,out_beliefv text)RETURNS VOID AS $body$
+
+/*
+ * TODO Assumptions:
+ * 1. is a <- b stored? yes
+ * 2. starting from node 1
+ * 3. no gap in ids.
+ */
+
+CREATE OR REPLACE FUNCTION compute_bp(adjacencym text,priorv text,hf numeric,
+    maximum bigint, error numeric,out_beliefv text)RETURNS VOID AS $body$
 DECLARE
     a numeric;
     c numeric;
@@ -51,13 +60,13 @@ BEGIN
     --create output belief vector
     EXECUTE format($s$
         CREATE TABLE %s(id integer, val numeric);
-        $s$,$4);
+        $s$,$6);
 
     --copy vector
     EXECUTE format($s$
         INSERT INTO %s
         SELECT * FROM %s
-        $s$,$4,$2);
+        $s$,$6,$2);
 
     --loop until converge or maximum iterations
     i:=0
@@ -66,14 +75,15 @@ BEGIN
         EXECUTE gimv($1,'tmpprior','tmpprior','combine2_bp','sum','assign_bp',0);
 
         --add to belief vector
-        EXECUTE vectoradd($4,'tmpprior');
+        EXECUTE vectoradd($6,'tmpprior');
 
         --see changing
         SELECT max(val) INTO c FROM tmpprior;
 
         --converge or maximum iteration
         --TODO
-        IF i>100000 or c<0.01 THEN
+        i:=i+1;
+        IF i>$4 or c<$5 THEN
             EXIT;
         END IF;
     END LOOP;

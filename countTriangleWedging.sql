@@ -51,7 +51,7 @@ BEGIN
 
     --partial sum
     RAISE NOTICE 'Compute probability of each node';
-    EXECUTE calculate_sum($2,cid);
+    EXECUTE calc_sum($2,cid);
 
     --select sample k nodes
     RAISE NOTICE 'Sampling...';
@@ -167,7 +167,7 @@ $$ LANGUAGE plpgsql;
  * caculate partial sum
  * even this function is too slow for big data.
  */
-CREATE OR REPLACE FUNCTION calculate_sum(text,bigint) RETURNS VOID AS $$
+CREATE OR REPLACE FUNCTION calc_sum(text,bigint) RETURNS VOID AS $$
 DECLARE 
     i bigint:=2;
 BEGIN

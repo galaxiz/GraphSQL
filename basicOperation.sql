@@ -136,6 +136,29 @@ END
 $body$ LANGUAGE plpgsql;
 
 /*
+ * load data with integer
+ * Create table and loading matrix data from file.
+ *
+ * Xi Zhao
+ */
+CREATE OR REPLACE FUNCTION loaddata_int(filename text,tablename text,val integer) RETURNS VOID AS $body$
+BEGIN
+    EXECUTE format(
+        'CREATE TABLE %s(sid integer, did integer, val integer);'
+        , $2);
+    IF val=0 THEN
+        EXECUTE format(
+            $$COPY %s(sid,did) FROM '%s' WITH DELIMITER ' '$$
+            ,$2,$1);
+    ELSE
+        EXECUTE format(
+            $$COPY %s(sid,did,val) FROM '%s' WITH DELIMITER ' '$$
+            ,$2,$1);
+    END IF;
+END
+$body$ LANGUAGE plpgsql;
+
+/*
  * vector length
  * 
  * Xi Zhao
@@ -169,28 +192,5 @@ $body$ LANGUAGE plpgsql;
 CREATE OR REPLACE FUNCTION zerovector(text) RETURNS VOID AS $body$
 BEGIN
     --set vector to be zero vector;
-END
-$body$ LANGUAGE plpgsql;
-
-/*
- * load data with integer
- * Create table and loading matrix data from file.
- *
- * Xi Zhao
- */
-CREATE OR REPLACE FUNCTION loaddata_int(filename text,tablename text,val integer) RETURNS VOID AS $body$
-BEGIN
-    EXECUTE format(
-        'CREATE TABLE %s(sid integer, did integer, val integer);'
-        , $2);
-    IF val=0 THEN
-        EXECUTE format(
-            $$COPY %s(sid,did) FROM '%s' WITH DELIMITER ' '$$
-            ,$2,$1);
-    ELSE
-        EXECUTE format(
-            $$COPY %s(sid,did,val) FROM '%s' WITH DELIMITER ' '$$
-            ,$2,$1);
-    END IF;
 END
 $body$ LANGUAGE plpgsql;

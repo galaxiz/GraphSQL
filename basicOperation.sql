@@ -65,6 +65,20 @@ END
 $body$ LANGUAGE plpgsql;
 
 /*
+ * Multiplication bewteen vector and scalar number
+ *
+ * Xi Zhao
+ */
+CREATE OR REPLACE FUNCTION vectornummul(target text,num numeric) RETURNS VOID AS $body$
+BEGIN
+    EXECUTE format($s$
+        UPDATE %s AS TAR
+        SET val=TAR.val*%s;
+        $s$,$1,$2);
+END
+$body$ LANGUAGE plpgsql;
+
+/*
  * vector addition
  * add two vector 
  *

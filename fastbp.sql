@@ -5,10 +5,7 @@
  */
 
 /*
- * TODO Assumptions:
- * 1. is a <- b stored? yes
- * 2. starting from node 1
- * 3. no gap in ids.
+ * Assumptions assume the basic properties of a matrix
  */
 
 CREATE OR REPLACE FUNCTION compute_bp(adjacencym text,priorv text,hf numeric,
@@ -90,6 +87,9 @@ BEGIN
 END
 $body$ LANGUAGE plpgsql;
 
+/*
+ * calculate diagonal matrix D
+ */
 CREATE OR REPLACE FUNCTION calc_diagonal(original text,dig text) RETURNS VOID AS $body$
 BEGIN
     EXECUTE format($s$
@@ -101,12 +101,18 @@ BEGIN
 END
 $body$ LANGUAGE plpgsql;
 
+/*
+ * combine2 function
+ */
 CREATE OR REPLACE FUNCTION combine2_bp(numeric,numeric) RETURNS numeric AS $body$
 BEGIN
     RETURN $1*$2;
 END
 $body$ LANGUAGE plpgsql;
 
+/*
+ * assign function
+ */
 CREATE OR REPLACE FUNCTION assign_bp(numeric,numeric) RETURNS numeric AS $body$
 BEGIN 
     RETURN $2;

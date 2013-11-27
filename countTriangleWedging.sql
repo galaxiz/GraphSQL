@@ -27,7 +27,6 @@ BEGIN
         ,$2);
 
     --assume that each edge are splited into two edges and stored in table
-    --or assume that only one direction of edges is stored in table
     EXECUTE format(
         'SELECT count(*) FROM (SELECT distinct sid FROM %s UNION SELECT distinct did FROM %s) as U'
         ,$1,$1) INTO cid;
@@ -39,9 +38,11 @@ BEGIN
         'INSERT INTO %s
         SELECT TMP.sid AS id,count(*)*(count(*)-1)/2 AS val
         FROM %s AS TMP
+        WHERE TMP.val=1
         GROUP BY TMP.sid;'
         ,$2,$1);
     /*
+    --assume only one direction is stored
     EXECUTE format(
         'INSERT INTO %s
         SELECT TMP.sid AS id,count(*)*(count(*)-1)/2 AS val
@@ -123,6 +124,32 @@ BEGIN
                         LIMIT 1
                     ) as TBL'
                     ,$1,$1,r) INTO s1;
+                 */
+                EXECUTE format(
+                    'SELECT did
+                    FROM (
+                        SELECT did, random() as weight FROM %s as U
+                        WHERE U.sid=%s
+                        ORDER BY weight
+                        LIMIT 1
+                    ) as TBL'
+                    ,$1,r) INTO s1;
+
+                --s2
+                LOOP
+                    /*
+                    EXECUTE format(
+                        'SELECT did
+                        FROM (
+                            SELECT did, random() as weight FROM (
+                                SELECT did AS sid,sid AS did FROM %s UNION ALL 
+                                SELECT sid,did FROM %s
+                            ) as U
+                            WHERE U.sid=%s
+                            ORDER BY weight
+                            LIMIT 1
+                        ) as TBL'
+                        ,$1,$1,r) INTO s2;
                      */
                     EXECUTE format(
                         'SELECT did
@@ -132,64 +159,38 @@ BEGIN
                             ORDER BY weight
                             LIMIT 1
                         ) as TBL'
-                        ,$1,r) INTO s1;
+                        ,$1,r) INTO s2;
+                    IF s2!=s1 THEN 
+                        EXIT;
+                    END IF;
+                END LOOP;
 
-                    --s2
-                    LOOP
-                        /*
-                        EXECUTE format(
-                            'SELECT did
-                            FROM (
-                                SELECT did, random() as weight FROM (
-                                    SELECT did AS sid,sid AS did FROM %s UNION ALL 
-                                    SELECT sid,did FROM %s
-                                ) as U
-                                WHERE U.sid=%s
-                                ORDER BY weight
-                                LIMIT 1
-                            ) as TBL'
-                            ,$1,$1,r) INTO s2;
-                             */
-                            EXECUTE format(
-                                'SELECT did
-                                FROM (
-                                    SELECT did, random() as weight FROM %s as U
-                                    WHERE U.sid=%s
-                                    ORDER BY weight
-                                    LIMIT 1
-                                ) as TBL'
-                                ,$1,r) INTO s2;
-                            IF s2!=s1 THEN 
-                                EXIT;
-                            END IF;
-                    END LOOP;
+                --check whether triangle
+                RAISE NOTICE 'check: r:% s1:% s2:%',r,s1,s2;
+                /*
+                EXECUTE format(
+                    'SELECT * 
+                    FROM %s
+                    WHERE (sid=%s and did=%s) or (sid=%s and did=%s)'
+                    ,$1,s1,s2,s2,s1);
+                 */
+                EXECUTE format(
+                    'SELECT * 
+                    FROM %s
+                    WHERE sid=%s and did=%s'
+                    ,$1,s1,s2,s2,s1);
+                GET DIAGNOSTICS row_affected=ROW_COUNT;
 
-                    --check whether triangle
-                    RAISE NOTICE 'check: r:% s1:% s2:%',r,s1,s2;
-                    /*
-                    EXECUTE format(
-                        'SELECT * 
-                        FROM %s
-                        WHERE (sid=%s and did=%s) or (sid=%s and did=%s)'
-                        ,$1,s1,s2,s2,s1);
-                         */
-                        EXECUTE format(
-                            'SELECT * 
-                            FROM %s
-                            WHERE sid=%s and did=%s'
-                            ,$1,s1,s2,s2,s1);
-                        GET DIAGNOSTICS row_affected=ROW_COUNT;
+                --if triangle
+                IF row_affected!=0 THEN
+                    RAISE NOTICE 'triangle.';
+                    wedge:=wedge+1;
+                END IF;
 
-                        --if triangle
-                        IF row_affected!=0 THEN
-                            RAISE NOTICE 'triangle.';
-                            wedge:=wedge+1;
-                        END IF;
-
-                        c:=c-1;
-                        IF c<=0 THEN
-                            EXIT;
-                        END IF;
+                c:=c-1;
+                IF c<=0 THEN
+                    EXIT;
+                END IF;
             END LOOP;
         END IF;
 
@@ -255,6 +256,7 @@ BEGIN
         $s$,$1) USING ida,vala;
     
     /*
+    --too slow
     LOOP
         RAISE NOTICE 'update:%',i;
         EXECUTE format(

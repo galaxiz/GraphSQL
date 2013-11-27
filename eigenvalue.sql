@@ -54,7 +54,6 @@ BEGIN
         EXECUTE vectoradd('v','tmp1');
         EXECUTE vectoradd('v','tmp2');
 
-        --RAISE NOTICE 'v:%',array(SELECT val FROM v ORDER BY id)::numeric(64,32)[];
         --length
         y[i]:=vectorlen('v');
         RAISE NOTICE 'beta%:%',i,y[i];
@@ -144,6 +143,9 @@ BEGIN
 END
 $body$ LANGUAGE plpgsql;
 
+/*
+ * qr decomposition
+ */
 CREATE OR REPLACE FUNCTION qr(dim bigint,source text,q text) RETURNS VOID AS $body$
 DECLARE 
     r numeric(128,64)[][];
@@ -200,6 +202,9 @@ BEGIN
 END
 $body$ LANGUAGE plpgsql;
 
+/*
+ * do eig decomposition
+ */
 CREATE OR REPLACE FUNCTION eig(dim bigint,source text,q text,d text,k integer) RETURNS VOID AS $body$
 BEGIN
     --create d
@@ -228,9 +233,13 @@ BEGIN
     END LOOP;
 
     --compute real q
+    --TODO
 END
 $body$ LANGUAGE plpgsql;
 
+/*
+ * build tridiagonal function
+ */
 CREATE OR REPLACE FUNCTION tridiagonal(dim bigint,x numeric[],y numeric[],matrix text) RETURNS VOID AS $body$
 DECLARE
     id numeric[];
@@ -253,9 +262,6 @@ BEGIN
         SELECT unnest($1) AS sid,unnest($1) AS did,unnest($2) AS val
         $s$,$4) USING id,$2;
 
-    --delete b[0]
-    --RAISE NOTICE 'b:% b[2:dim]:%',$3,$3[1:dim];
-
     EXECUTE format($s$
         INSERT INTO %s
         SELECT unnest($1) AS sid,unnest($2) AS did,unnest($3) AS val
@@ -268,19 +274,28 @@ BEGIN
 END 
 $body$ LANGUAGE plpgsql;
 
+/*
+ * combine2 function
+ */
 CREATE OR REPLACE FUNCTION combine2_ev(numeric,numeric) RETURNS numeric AS $body$
 BEGIN
     RETURN $1*$2;
 END
 $body$ LANGUAGE plpgsql;
 
+/*
+ * assign function
+ */
 CREATE OR REPLACE FUNCTION assign_ev(numeric,numeric) RETURNS numeric AS $body$
 BEGIN
     RETURN $2;
 END
 $body$ LANGUAGE plpgsql;
 
-CREATE OR REPLACE FUNCTION new_b(dim bigint,text) RETURNS VOID AS $body$
+/*
+ * new random vector
+ */
+CREATE OR REPLACE FUNCTION new_rand_vector(dim bigint,text) RETURNS VOID AS $body$
 BEGIN
     EXECUTE format($s$
         DROP TABLE IF EXISTS %s;

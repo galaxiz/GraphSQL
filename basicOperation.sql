@@ -1,5 +1,7 @@
 /*
  * Basic Operations
+ *
+ * Xi Zhao
  */
 
 /*
@@ -52,8 +54,6 @@ $body$ LANGUAGE plpgsql;
 
 /*
  * Multiplication bewteen matrix and scalar number
- *
- * Xi Zhao
  */
 CREATE OR REPLACE FUNCTION matrixnummul(target text,num numeric) RETURNS VOID AS $body$
 BEGIN
@@ -66,8 +66,6 @@ $body$ LANGUAGE plpgsql;
 
 /*
  * Multiplication bewteen vector and scalar number
- *
- * Xi Zhao
  */
 CREATE OR REPLACE FUNCTION vectornummul(target text,num numeric) RETURNS VOID AS $body$
 BEGIN
@@ -81,8 +79,6 @@ $body$ LANGUAGE plpgsql;
 /*
  * vector addition
  * add two vector 
- *
- * Xi Zhao
  */
 CREATE OR REPLACE FUNCTION vectoradd(targetvector text,adder text) RETURNS VOID AS $body$
 BEGIN
@@ -98,8 +94,6 @@ $body$ LANGUAGE plpgsql;
 /*
  * matrix addition
  * add two matrix 
- *
- * Xi Zhao
  */
 CREATE OR REPLACE FUNCTION maxtrixadd(targetmatrix text,adder text) RETURNS VOID AS $body$
 BEGIN
@@ -115,8 +109,6 @@ $body$ LANGUAGE plpgsql;
 /*
  * load data
  * Create table and loading matrix data from file.
- *
- * Xi Zhao
  */
 CREATE OR REPLACE FUNCTION loaddata(filename text,tablename text,val integer) RETURNS VOID AS $body$
 BEGIN
@@ -138,8 +130,6 @@ $body$ LANGUAGE plpgsql;
 /*
  * load data with integer
  * Create table and loading matrix data from file.
- *
- * Xi Zhao
  */
 CREATE OR REPLACE FUNCTION loaddata_int(filename text,tablename text,val integer) RETURNS VOID AS $body$
 BEGIN
@@ -160,8 +150,6 @@ $body$ LANGUAGE plpgsql;
 
 /*
  * vector length
- * 
- * Xi Zhao
  */
 CREATE OR REPLACE FUNCTION vectorlen(v text) RETURNS numeric AS $body$
 DECLARE
@@ -179,7 +167,6 @@ $body$ LANGUAGE plpgsql;
 
 /*
  * Matrix matrix multiplication
- * Xi Zhao
  */
 CREATE OR REPLACE FUNCTION matrixmulr(target text,multiplier text,tp integer) RETURNS VOID AS $body$
 BEGIN
@@ -207,7 +194,6 @@ $body$ LANGUAGE plpgsql;
 
 /*
  * Matrix matrix multiplication
- * Xi Zhao
  */
 CREATE OR REPLACE FUNCTION matrixmull(multiplier text,target text,tp integer) RETURNS VOID AS $body$
 BEGIN
@@ -264,8 +250,6 @@ $body$ LANGUAGE plpgsql;
 
 /*
  * assume it has been created and has the same dimension
- *
- * Xi Zhao
  */
 CREATE OR REPLACE FUNCTION vectorcopy(source text,target text) RETURNS VOID AS $body$
 BEGIN

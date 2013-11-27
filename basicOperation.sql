@@ -21,26 +21,28 @@ row_affected integer;
 BEGIN   
     IF $7=0 THEN
         EXECUTE format($s$
-            Update %s
-            set val=%s(%s.val,tmp.val)
-            FROM    (SELECT %s.sid as id, %s(%s(%s.val,%s.val)) as val
-                FROM %s,%s
-                WHERE %s.did=%s.id
-                GROUP BY %s.sid
+            Update %s AS tar
+            set val=%s(tar.val,tmp.val)
+            FROM    (
+                SELECT m.sid as id, %s(%s(m.val,v.val)) as val
+                FROM %s AS m,%s AS v
+                WHERE m.did=v.id
+                GROUP BY m.sid
             ) as tmp
-            where %s.id=tmp.id and %s.val!=%s(%s.val,tmp.val);
-            $s$,$3,$6,$2,$1,$5,$4,$1,$2,$1,$2,$1,$2,$1,$3,$3,$6,$3);
+            where tar.id=tmp.id and tar.val!=%s(tar.val,tmp.val);
+            $s$,$3,$6,$5,$4,$1,$2,$6);
     ELSE
         EXECUTE format($s$
-            Update %s
-            set val=%s(%s.val,tmp.val)
-            FROM    (SELECT %s.did as id, %s(%s(%s.val,%s.val)) as val
-                FROM %s,%s
-                WHERE %s.sid=%s.id
-                GROUP BY %s.did
+            Update %s AS tar
+            set val=%s(tar.val,tmp.val)
+            FROM    (
+                SELECT m.did as id, %s(%s(m.val,v.val)) as val
+                FROM %s AS m,%s AS v
+                WHERE m.sid=v.id
+                GROUP BY m.did
             ) as tmp
-            where %s.id=tmp.id and %s.val!=%s(%s.val,tmp.val);
-            $s$,$3,$6,$2,$1,$5,$4,$1,$2,$1,$2,$1,$2,$1,$3,$3,$6,$3);
+            where tar.id=tmp.id and tar.val!=%s(tar.val,tmp.val);
+            $s$,$3,$6,$5,$4,$1,$2,$6);
     END IF;
     GET DIAGNOSTICS row_affected=ROW_COUNT;
     RETURN row_affected;
@@ -105,7 +107,7 @@ $body$ LANGUAGE plpgsql;
 CREATE OR REPLACE FUNCTION loaddata(filename text,tablename text,val integer) RETURNS VOID AS $body$
 BEGIN
     EXECUTE format(
-        'CREATE TABLE %s(sid integer, did integer, val numeric);'
+        'CREATE TABLE %s(sid integer, did integer, val numeric default 1);'
         , $2);
     IF val=0 THEN
         EXECUTE format(
@@ -144,6 +146,15 @@ $body$ LANGUAGE plpgsql;
  */
 CREATE OR REPLACE FUNCTION matrixmul(target text,multiplier text) RETURNS VOID AS $body$
 BEGIN
+END
+$body$ LANGUAGE plpgsql;
+
+/*
+ * make zero vector
+ */
+CREATE OR REPLACE FUNCTION zerovector(text) RETURNS VOID AS $body$
+BEGIN
+    --set vector to be zero vector;
 END
 $body$ LANGUAGE plpgsql;
 

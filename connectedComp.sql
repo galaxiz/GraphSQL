@@ -69,7 +69,7 @@ BEGIN
     LOOP
         i := gimv($1,$2,$2,'combine2_cc','min','least',0);
         -- for undirected graph, we need to a reverse direction as well.
-        i := i + gimv($1,$2,$2,'combine2_cc','min','least',1);
+        --i := i + gimv($1,$2,$2,'combine2_cc','min','least',1);
         
         RAISE NOTICE 'update: %',i;
         IF i=0 THEN

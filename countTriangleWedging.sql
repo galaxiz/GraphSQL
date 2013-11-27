@@ -18,11 +18,12 @@ DECLARE
     wedge bigint := 0; --wedge number in samples
     s1 bigint; --wedge end point 1
     s2 bigint; --wedge end point 2
+    c bigint; --count of chosen
 BEGIN
     --init
-    DROP TABLE ischosen;
+    DROP TABLE IF EXISTS ischosen;
     EXECUTE format(
-        'DROP TABLE %s;'
+        'DROP TABLE IF EXISTS %s;'
         ,$2);
 
     --assume that each edge are splited into two edges and stored in table
@@ -37,12 +38,20 @@ BEGIN
     EXECUTE format(
         'INSERT INTO %s
         SELECT TMP.sid AS id,count(*)*(count(*)-1)/2 AS val
+        FROM %s AS TMP
+        GROUP BY TMP.sid;'
+        ,$2,$1);
+    /*
+    EXECUTE format(
+        'INSERT INTO %s
+        SELECT TMP.sid AS id,count(*)*(count(*)-1)/2 AS val
         FROM (
             SELECT did AS sid,sid AS did FROM %s UNION ALL 
             SELECT sid,did FROM %s
         ) AS TMP
         GROUP BY TMP.sid;'
         ,$2,$1,$1);
+    */
 
     --total probability
     EXECUTE format(
@@ -55,7 +64,7 @@ BEGIN
 
     --select sample k nodes
     RAISE NOTICE 'Sampling...';
-    CREATE TEMP TABLE ischosen(id integer);
+    CREATE TEMP TABLE ischosen(id integer,val numeric);
 
     i:=1;
     LOOP
@@ -73,11 +82,15 @@ BEGIN
         --if already chosen
         IF row_affected =0 THEN
             --update
-            RAISE NOTICE 'Add randomly chosed: %',r;
-            INSERT INTO ischosen values(r);
-            i:=i+1;
+            RAISE NOTICE 'Add %th randomly chosed: %',i,r;
+            INSERT INTO ischosen values(r,1);
+        ELSE 
+            UPDATE ischosen AS tar
+            SET val=tar.val+1
+            WHERE tar.id=r;
         END IF;
 
+        i:=i+1;
         IF i>$3 THEN
             EXIT;
         END IF;
@@ -86,26 +99,18 @@ BEGIN
     --for each node choose a wedge uniformly
     r:=1;
     LOOP
+        /*
         PERFORM * FROM ischosen WHERE id=r;
         GET DIAGNOSTICS row_affected=ROW_COUNT;
+        */
 
-        IF row_affected!=0 THEN
-            --s1
-            EXECUTE format(
-                'SELECT did
-                FROM (
-                    SELECT did, random() as weight FROM (
-                        SELECT did AS sid,sid AS did FROM %s UNION ALL 
-                        SELECT sid,did FROM %s
-                    ) as U
-                    WHERE U.sid=%s
-                    ORDER BY weight
-                    LIMIT 1
-                ) as TBL'
-                ,$1,$1,r) INTO s1;
+        SELECT val INTO c FROM ischosen WHERE id=r;
 
-            --s2
+        --IF row_affected!=0 THEN
+        IF c IS NOT NULL THEN
             LOOP
+                --s1
+                /*
                 EXECUTE format(
                     'SELECT did
                     FROM (
@@ -117,26 +122,75 @@ BEGIN
                         ORDER BY weight
                         LIMIT 1
                     ) as TBL'
-                    ,$1,$1,r) INTO s2;
-                IF s2!=s1 THEN 
-                    EXIT;
-                END IF;
+                    ,$1,$1,r) INTO s1;
+                     */
+                    EXECUTE format(
+                        'SELECT did
+                        FROM (
+                            SELECT did, random() as weight FROM %s as U
+                            WHERE U.sid=%s
+                            ORDER BY weight
+                            LIMIT 1
+                        ) as TBL'
+                        ,$1,r) INTO s1;
+
+                    --s2
+                    LOOP
+                        /*
+                        EXECUTE format(
+                            'SELECT did
+                            FROM (
+                                SELECT did, random() as weight FROM (
+                                    SELECT did AS sid,sid AS did FROM %s UNION ALL 
+                                    SELECT sid,did FROM %s
+                                ) as U
+                                WHERE U.sid=%s
+                                ORDER BY weight
+                                LIMIT 1
+                            ) as TBL'
+                            ,$1,$1,r) INTO s2;
+                             */
+                            EXECUTE format(
+                                'SELECT did
+                                FROM (
+                                    SELECT did, random() as weight FROM %s as U
+                                    WHERE U.sid=%s
+                                    ORDER BY weight
+                                    LIMIT 1
+                                ) as TBL'
+                                ,$1,r) INTO s2;
+                            IF s2!=s1 THEN 
+                                EXIT;
+                            END IF;
+                    END LOOP;
+
+                    --check whether triangle
+                    RAISE NOTICE 'check: r:% s1:% s2:%',r,s1,s2;
+                    /*
+                    EXECUTE format(
+                        'SELECT * 
+                        FROM %s
+                        WHERE (sid=%s and did=%s) or (sid=%s and did=%s)'
+                        ,$1,s1,s2,s2,s1);
+                         */
+                        EXECUTE format(
+                            'SELECT * 
+                            FROM %s
+                            WHERE sid=%s and did=%s'
+                            ,$1,s1,s2,s2,s1);
+                        GET DIAGNOSTICS row_affected=ROW_COUNT;
+
+                        --if triangle
+                        IF row_affected!=0 THEN
+                            RAISE NOTICE 'triangle.';
+                            wedge:=wedge+1;
+                        END IF;
+
+                        c:=c-1;
+                        IF c<=0 THEN
+                            EXIT;
+                        END IF;
             END LOOP;
-
-            --check whether triangle
-            RAISE NOTICE 'check: r:% s1:% s2:%',r,s1,s2;
-            EXECUTE format(
-                'SELECT * 
-                FROM %s
-                WHERE (sid=%s and did=%s) or (sid=%s and did=%s)'
-                ,$1,s1,s2,s2,s1);
-            GET DIAGNOSTICS row_affected=ROW_COUNT;
-
-            --if triangle
-            IF row_affected!=0 THEN
-                RAISE NOTICE 'triangle.';
-                wedge:=wedge+1;
-            END IF;
         END IF;
 
         r:=r+1;
@@ -170,7 +224,37 @@ $$ LANGUAGE plpgsql;
 CREATE OR REPLACE FUNCTION calc_sum(text,bigint) RETURNS VOID AS $$
 DECLARE 
     i bigint:=2;
+    ida integer[];
+    vala numeric[];
 BEGIN
+    EXECUTE format($s$
+        SELECT array(SELECT id FROM %s order by id)
+        $s$,$1) INTO ida;
+    
+    EXECUTE format($s$
+        SELECT array(SELECT val FROM %s order by id)
+        $s$,$1) INTO vala;
+
+    i:=2;
+    LOOP
+        vala[i]:=vala[i-1]+vala[i];
+        RAISE NOTICE 'update:%',i;
+        i:=i+1;
+        IF i>array_length(vala,1) THEN
+            EXIT;
+        END IF;
+    END LOOP;
+
+    EXECUTE format($s$
+        UPDATE %s AS tar
+        SET val=n.val
+        FROM (
+            SELECT unnest($1) AS id,unnest($2) AS val
+        ) AS n
+        WHERE tar.id=n.id;
+        $s$,$1) USING ida,vala;
+    
+    /*
     LOOP
         RAISE NOTICE 'update:%',i;
         EXECUTE format(
@@ -186,6 +270,7 @@ BEGIN
             EXIT;
         END IF;
     END LOOP;
+    */
 END
 $$ LANGUAGE plpgsql;
 

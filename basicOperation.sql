@@ -1,5 +1,7 @@
 /*
  * Basic Operations
+ *
+ * Xi Zhao
  */
 
 /*
@@ -52,8 +54,6 @@ $body$ LANGUAGE plpgsql;
 
 /*
  * Multiplication bewteen matrix and scalar number
- *
- * Xi Zhao
  */
 CREATE OR REPLACE FUNCTION matrixnummul(target text,num numeric) RETURNS VOID AS $body$
 BEGIN
@@ -66,8 +66,6 @@ $body$ LANGUAGE plpgsql;
 
 /*
  * Multiplication bewteen vector and scalar number
- *
- * Xi Zhao
  */
 CREATE OR REPLACE FUNCTION vectornummul(target text,num numeric) RETURNS VOID AS $body$
 BEGIN
@@ -81,8 +79,6 @@ $body$ LANGUAGE plpgsql;
 /*
  * vector addition
  * add two vector 
- *
- * Xi Zhao
  */
 CREATE OR REPLACE FUNCTION vectoradd(targetvector text,adder text) RETURNS VOID AS $body$
 BEGIN
@@ -98,8 +94,6 @@ $body$ LANGUAGE plpgsql;
 /*
  * matrix addition
  * add two matrix 
- *
- * Xi Zhao
  */
 CREATE OR REPLACE FUNCTION maxtrixadd(targetmatrix text,adder text) RETURNS VOID AS $body$
 BEGIN
@@ -115,8 +109,6 @@ $body$ LANGUAGE plpgsql;
 /*
  * load data
  * Create table and loading matrix data from file.
- *
- * Xi Zhao
  */
 CREATE OR REPLACE FUNCTION loaddata(filename text,tablename text,val integer) RETURNS VOID AS $body$
 BEGIN
@@ -138,8 +130,6 @@ $body$ LANGUAGE plpgsql;
 /*
  * load data with integer
  * Create table and loading matrix data from file.
- *
- * Xi Zhao
  */
 CREATE OR REPLACE FUNCTION loaddata_int(filename text,tablename text,val integer) RETURNS VOID AS $body$
 BEGIN
@@ -160,8 +150,6 @@ $body$ LANGUAGE plpgsql;
 
 /*
  * vector length
- * 
- * Xi Zhao
  */
 CREATE OR REPLACE FUNCTION vectorlen(v text) RETURNS numeric AS $body$
 DECLARE
@@ -179,18 +167,126 @@ $body$ LANGUAGE plpgsql;
 
 /*
  * Matrix matrix multiplication
- * Xi Zhao
  */
-CREATE OR REPLACE FUNCTION matrixmul(target text,multiplier text) RETURNS VOID AS $body$
+CREATE OR REPLACE FUNCTION matrixmulr(target text,multiplier text,tp integer) RETURNS VOID AS $body$
 BEGIN
+    IF $3=0 THEN
+        EXECUTE format($s$
+            UPDATE %s AS tar
+            SET val=(
+                SELECT sum(one.val*two.val)::numeric(256,128)
+                FROM %s AS one,%s AS two
+                WHERE one.sid=tar.sid and two.did=tar.did and one.did=two.sid
+            )
+            $s$,$1,$1,$2);
+    ELSE
+        EXECUTE format($s$
+            UPDATE %s AS tar
+            SET val=(
+                SELECT sum(one.val*two.val)::numeric(256,128)
+                FROM %s AS one,%s AS two
+                WHERE one.sid=tar.sid and two.sid=tar.did and one.did=two.did
+            )
+            $s$,$1,$1,$2);
+    END IF;
+END
+$body$ LANGUAGE plpgsql;
+
+/*
+ * Matrix matrix multiplication
+ */
+CREATE OR REPLACE FUNCTION matrixmull(multiplier text,target text,tp integer) RETURNS VOID AS $body$
+BEGIN
+    IF $3=0 THEN
+        EXECUTE format($s$
+            UPDATE %s AS tar
+            SET val=(
+                SELECT sum(one.val*two.val)::numeric(256,128)
+                FROM %s AS one,%s AS two
+                WHERE one.sid=tar.sid and two.did=tar.did and one.did=two.sid
+            )
+            $s$,$2,$1,$2);
+    ELSE
+        EXECUTE format($s$
+            UPDATE %s AS tar
+            SET val=(
+                SELECT sum(one.val*two.val)::numeric(256,128)
+                FROM %s AS one,%s AS two
+                WHERE one.did=tar.sid and two.did=tar.did and one.sid=two.sid
+            )
+            $s$,$2,$1,$2);
+    END IF;
 END
 $body$ LANGUAGE plpgsql;
 
 /*
  * make zero vector
  */
-CREATE OR REPLACE FUNCTION zerovector(text) RETURNS VOID AS $body$
+CREATE OR REPLACE FUNCTION zerovector(text,bigint) RETURNS VOID AS $body$
+DECLARE
+    i bigint:=1;
 BEGIN
-    --set vector to be zero vector;
+    EXECUTE format($s$
+        DROP TABLE IF EXISTS %s;
+        $s$,$1);
+
+    EXECUTE format($s$
+        CREATE TABLE %s(id int,val numeric);
+        $s$,$1);
+
+    LOOP
+        IF i>$2 THEN
+            EXIT;
+        END IF;
+
+        EXECUTE format(
+            'INSERT INTO %s values(%s,0);'
+            ,$1,i);
+
+        i:=i+1;
+    END LOOP;
 END
 $body$ LANGUAGE plpgsql;
+
+/*
+ * assume it has been created and has the same dimension
+ */
+CREATE OR REPLACE FUNCTION vectorcopy(source text,target text) RETURNS VOID AS $body$
+BEGIN
+    --assume it has been created and has the same dimension
+    EXECUTE format($s$
+        UPDATE %s AS tar
+        SET val=src.val
+        FROM %s AS src
+        WHERE tar.id=src.id;
+        $s$,$2,$1);
+END
+$body$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE FUNCTION vectordot(text,text) RETURNS numeric AS $body$
+DECLARE
+    res numeric:=0;
+BEGIN
+    EXECUTE format($s$
+        SELECT sum(one.val*two.val)
+        FROM %s AS one,%s AS two
+        WHERE one.id=two.id;
+        $s$,$1,$2) INTO res;
+
+    RETURN res;
+END
+$body$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE FUNCTION col(matrix text,col integer,vector text) RETURNS VOID AS $body$
+BEGIN
+    PERFORM zerovector($3);
+
+    EXECUTE format($s$
+        UPDATE %s AS tar
+        SET val=src.val
+        FROM %s AS src
+        WHERE tar.id=src.sid and src.did=$1
+        $s$,$3,$1) USING $2;
+END
+$body$ LANGUAGE plpgsql;
+

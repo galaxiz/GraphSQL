@@ -1,5 +1,0 @@
-\set dg :DIR '/degreedistibution.sql'
-\i :dg
-select degreedist(:table,'disdis',:mode);
-\copy disdis to degdist.txt with delimiter ' '
-

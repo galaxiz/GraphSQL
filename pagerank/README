@@ -1,0 +1,15 @@
+# Author Shiwei Dong
+# 
+# plot.sh: run pagerank and plot the 
+
+To run this please use the following command
+
+Usage:
+bash plot.h DBName Inputfile Outputfile Pdf ifstart1(If the node starts at 1 for the inputfile) 
+Eg
+bash plot.h air 'data/web-Google.txt' 'web-google.result' 'web-google-plot.pdf' 0 
+
+NOTICE:
+1. Correctly Installed Postgresql
+2. Argument should be relative directory. Output file will be in '$pwd/result/'
+3. The input file should be have the format of 'fromnode tonode val' with delimiter ' '

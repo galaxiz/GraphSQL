@@ -1,0 +1,112 @@
+
+
+*******************************************************************************
+Wed Nov 27 22:24:53 2013
+
+
+FIT:    data read from './res_google.txt' u 1:2
+        format = x:z
+        #datapoints = 13796
+        residuals are weighted equally (unit weight)
+
+function used for fitting: f(x)
+fitted parameters initialized with current variable values
+
+
+
+*******************************************************************************
+Wed Nov 27 22:25:10 2013
+
+
+FIT:    data read from './res_google.txt' u 1:2
+        format = x:z
+        #datapoints = 13796
+        residuals are weighted equally (unit weight)
+
+function used for fitting: f(x)
+fitted parameters initialized with current variable values
+
+
+
+ Iteration 0
+ WSSR        : 4.46924e+10       delta(WSSR)/WSSR   : 0
+ delta(WSSR) : 0                 limit for stopping : 1e-05
+ lambda	  : 0.707107
+
+initial set of free parameter values
+
+a               = 1
+b               = 1
+
+After 2 iterations the fit converged.
+final sum of squares of residuals : 4.46385e+10
+rel. change during last iteration : -1.26359e-06
+
+degrees of freedom    (FIT_NDF)                        : 13794
+rms of residuals      (FIT_STDFIT) = sqrt(WSSR/ndf)    : 1798.91
+variance of residuals (reduced chisquare) = WSSR/ndf   : 3.23608e+06
+
+Final set of parameters            Asymptotic Standard Error
+=======================            ==========================
+
+a               = -2395.67         +/- 4.275e+05    (1.785e+04%)
+b               = 63.5106          +/- 16.52        (26.02%)
+
+
+correlation matrix of the fit parameters:
+
+               a      b      
+a               1.000 
+b              -0.375  1.000 
+
+
+*******************************************************************************
+Wed Nov 27 22:27:29 2013
+
+
+FIT:    data read from './res_google.txt' u 1:2
+        format = x:z
+        #datapoints = 13796
+        residuals are weighted equally (unit weight)
+
+function used for fitting: f(x)
+fitted parameters initialized with current variable values
+
+
+
+ Iteration 0
+ WSSR        : 4.46385e+10       delta(WSSR)/WSSR   : 0
+ delta(WSSR) : 0                 limit for stopping : 1e-05
+ lambda	  : 0
+
+initial set of free parameter values
+
+log             = 1
+BREAK:          Singular matrix in Givens()
+
+
+
+*******************************************************************************
+Wed Nov 27 22:31:09 2013
+
+
+FIT:    data read from './res_google.txt' u 1:2
+        format = x:z
+        #datapoints = 13796
+        residuals are weighted equally (unit weight)
+
+function used for fitting: f(x)
+fitted parameters initialized with current variable values
+
+
+
+ Iteration 0
+ WSSR        : 4.46385e+10       delta(WSSR)/WSSR   : 0
+ delta(WSSR) : 0                 limit for stopping : 1e-05
+ lambda	  : 0
+
+initial set of free parameter values
+
+log             = 1.001
+BREAK:          Singular matrix in Givens()
+

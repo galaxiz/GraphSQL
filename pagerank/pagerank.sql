@@ -1,4 +1,13 @@
-CREATE OR REPLACE FUNCTION rownormalize (E TEXT) RETURNS VOID AS
+/*
+ * Rownormalize
+ *
+ * Author Shiwei Dong
+ *
+ * Create a row normalized table, each row should have entries and 
+ * nonzero rows normalized to 1
+ */
+
+CREATE OR REPLACE FUNCTION rownormalize (E TEXT, st Integer) RETURNS VOID AS
 $$
 DECLARE
 n INTEGER; --number of nodes
@@ -9,36 +18,25 @@ BEGIN
     n = numnodes(E);
     DROP TABLE IF EXISTS rownormedge;
     CREATE TABLE IF NOT EXISTS rownormedge (sid INTEGER, did INTEGER, val NUMERIC); 
-    EXECUTE 
-        'INSERT INTO rownormedge SELECT sid, did, c FROM ' || E ||
-        ', (SELECT sid as f, 1/cast(count(*) AS real) AS c FROM '|| E ||
-        ' GROUP BY sid) AS T WHERE T.f = '|| E || '.sid';
-    
+    IF st = 0 THEN
+        EXECUTE 
+            'INSERT INTO rownormedge SELECT sid, did, c FROM ' || E ||
+            ', (SELECT sid as f, 1/cast(count(*) AS real) AS c FROM '|| E ||
+            ' GROUP BY sid) AS T WHERE T.f = '|| E || '.sid';
+    ELSE
+        EXECUTE 
+            'INSERT INTO rownormedge SELECT sid-1, did-1, c FROM ' || E ||
+            ', (SELECT sid as f, 1/cast(count(*) AS real) AS c FROM '|| E ||
+            ' GROUP BY sid) AS T WHERE T.f = '|| E || '.sid';
+    END IF;
+
     sres := 0;
     init := 1/n::float;
-    --RAISE NOTICE 'init %', init;
-    /*FOR i IN 0..(n-1) LOOP
-        SELECT count(*) INTO sres FROM rownormedge WHERE sid = i;
-        IF sres = 0 THEN
---            RAISE NOTICE '%',sres;
-            FOR j IN 0..(n-1) LOOP
-                INSERT INTO rownormedge VALUES (i, j, init);
-            END LOOP;
-        END IF;
-    END LOOP;*/
-   RAISE NOTICE 'here'; 
+
     -- Must make every column have at least 1 entry, else aggregation step will skip those zero columns
     FOR j IN 0..(n-1) LOOP
-     /*insert into rownormedge select T.did, T.did, 0 from
-    (select did, count(*) as c from rownormedge group by did ) as T
-    where T.c = 0;*/
-
-    insert into rownormedge select j,j,0 ; 
-    /*SELECT count(*) INTO sres FROM rownormedge WHERE did = j;
-
-        IF sres = 0 THEN
-            INSERT INTO rownormedge VALUES (j, j, 0);
-        END IF;*/
+        --eliminate self loop
+        insert into rownormedge select j,j,0 ; 
     END LOOP;
 END
 $$ LANGUAGE plpgsql;
@@ -46,6 +44,8 @@ $$ LANGUAGE plpgsql;
 
 /*
  * Perform pagerank
+ *
+ * Author Shiwei Dong
  */
 CREATE OR REPLACE FUNCTION pagerank (E TEXT) RETURNS VOID AS $$
 DECLARE
@@ -62,9 +62,10 @@ BEGIN
     DROP TABLE IF EXISTS nn;
     CREATE TEMP TABLE nn (n INTEGER);
     INSERT INTO nn VALUES(n);
+    
     --generate a pagerank vector
     DROP TABLE IF EXISTS pagerank;
-    CREATE TABLE pagerank (id INTEGER, val NUMERIC(12,10));
+    CREATE TABLE pagerank (id INTEGER, val NUMERIC(12,9));
     FOR i in 0..(n-1) LOOP
         INSERT INTO pagerank VALUES(i, init);
     END LOOP;
@@ -73,7 +74,8 @@ BEGIN
     CREATE TABLE pp (id INTEGER, val NUMERIC);
     execute testvector(n);
     EXECUTE findzerorows(n);
-    --insert into pagerank_new select * from pagerank;
+
+    -- stopping criteria 20 iterations or norm < 1e-7
     iii := 0;
     LOOP
         iii := iii + 1;
@@ -94,7 +96,7 @@ BEGIN
         
         norm := norm();
         RAISE NOTICE 'norm: %', norm;
-        IF norm < 0.0000001 THEN
+        IF norm < 0.00000001 THEN
             RAISE NOTICE 'on exit norm: %', norm;
             EXIT;
         END IF;    
@@ -103,6 +105,9 @@ BEGIN
 END
 $$ LANGUAGE plpgsql;
 
+/*
+ *  Calculate the norm of the new pagerank vector and old one
+ */
 CREATE OR REPLACE FUNCTION norm() RETURNS NUMERIC AS $$
 DECLARE 
 res NUMERIC;
@@ -129,7 +134,6 @@ BEGIN
 END
 $$ LANGUAGE plpgsql;
 
-
 -- combineAll
 CREATE TYPE pr_type AS(
     sum NUMERIC
@@ -153,9 +157,6 @@ BEGIN
     --RAISE NOTICE '%', t.sum+0.15/4::float;
     EXECUTE 'SELECT n FROM nn LIMIT 1' INTO nodenum;
     res := t.sum + 0.15/nodenum::float;
-    if nodenum != 6 Then
-        --RAISE NOTICE '% %', t.sum, res;
-    END if;
     RETURN res;  --the number of nodes
 END
 $$ LANGUAGE plpgsql;
@@ -167,6 +168,9 @@ CREATE AGGREGATE pr_combineall (NUMERIC) (
     initcond = '(0)'
 );
 
+/*
+ * Generate a vector with all entries to 1/n
+ */
 CREATE OR REPLACE FUNCTION testvector(n INTEGER) RETURNS VOID AS $$
 DECLARE
 init NUMERIC;
@@ -180,6 +184,9 @@ BEGIN
 END
 $$ LANGUAGE plpgsql;
 
+/*
+ * Find zero rows in the pagerank matrix and put it into zr_vetor
+ */
 CREATE OR REPLACE FUNCTION findzerorows (n INTEGER) RETURNS VOID AS $$
 DECLARE
 sres INTEGER;
@@ -193,7 +200,9 @@ BEGIN
         end if;*//*
         insert into zr_vector select i,1 from (select did from rownormedge where sid = i and val != 0 limit 1 ) as T where T.did is null;
         insert into zr_vector select sid, 1 from (select sid from rownormedge where sid = i and val != 0 limit 1 ) as T where T.did is null;*/
-    insert into zr_vector select T.sid,1 from (select sid, count(*) as c from rownormedge group by sid ) as T where t.c = 1;
+     -- OPTIMIZATION!!!!!
+     insert into zr_vector select T.sid,1 from (select sid, count(*) as c from rownormedge group by sid ) as T where t.c = 1;
+
     --END LOOP;
 END
 $$ LANGUAGE plpgsql;

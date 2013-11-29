@@ -1,4 +1,7 @@
 #!/usr/bin/python
+##
+## This is the initial version of pagerank, which is extremely slow
+##
 
 import sys
 import psycopg2
@@ -61,13 +64,10 @@ def main():
                     cmd = 'insert into rownormEdge values ({0}, {1}, {2})'.format(x,y,init)
                     cur.execute(cmd)
     
-    #cur.execute('select * from rownormEdge')
-    #res = cur.fetchall()
-    #for s in res:
-    #    print s[0]," ",s[1]," ",s[2]
     print 'start calculating pagerank';
     cur.execute("create table if not exists pagerank_new (id integer, val real)")
     cur.execute("delete from pagerank_new")
+
     #init page rank new
     for i in range(1, num+1):
         cmd = "insert into pagerank_new VALUES ({0},0)".format(i,init)
@@ -96,10 +96,7 @@ def main():
                 where\
                     id = T.e'.format(dfactor)
         cur.execute(cmd)
-        #cur.execute("select * from pagerank_new")
-        #show = cur.fetchall()
-        #for s in show:
-        #    print " ", s[0], " ", s[1]
+
         cmd = 'update pagerank_new \
                 set\
                     val = val + T.res\

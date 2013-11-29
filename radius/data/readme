@@ -1,0 +1,5 @@
+the graphs are too large, I Kept some small graphs.
+If you have any need, just contact me.
+The data can be downloaded from SNAP project, but need some preprocessing:
+1. separator should be ' ' instead of '\t'
+2. should have three column with the third column 1

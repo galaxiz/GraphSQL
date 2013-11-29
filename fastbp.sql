@@ -7,7 +7,6 @@
 /*
  * Assumptions assume the basic properties of a matrix
  */
-
 CREATE OR REPLACE FUNCTION compute_bp(adjacencym text,priorv text,hf numeric,
     maximum bigint, error numeric,out_beliefv text)RETURNS VOID AS $body$
 DECLARE

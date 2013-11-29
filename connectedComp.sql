@@ -5,13 +5,6 @@
  */
 
 /*
- * TODO Assumptions:
- * 1. is a <- b stored?
- * 2. starting from node 1
- * 3. no gap in ids.
- */
-
-/*
  * new vector for computing connected component
  * each node i is in set i.
  */

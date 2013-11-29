@@ -1,5 +1,8 @@
 /*
  * eigenvalue
+ * Lanczos
+ * -bisection
+ * -QR decomposition (deprecated)
  * 
  * Xi Zhao
  */
@@ -21,6 +24,9 @@ BEGIN
         FROM %s AS m;
         $s$,$1) INTO n;
 
+    --new b
+    EXECUTE new_rand_vector($3,$2);
+
     --init
     y[0]:=0;
 
@@ -31,8 +37,7 @@ BEGIN
     EXECUTE vectornummul($2,1/r);
     EXECUTE vectorcopy($2,'v1');
 
-    i:=1;
-    LOOP
+    FOR i IN 1..$3 LOOP
         RAISE NOTICE 'round:%',i;
         --find a new basis vector
         EXECUTE zerovector('v',n);
@@ -42,9 +47,9 @@ BEGIN
         x[i]:=vectordot(format('v%s',i),'v');
         RAISE NOTICE 'alpha%:%',i,x[i];
 
-        --orthogonalize against two previous basis vectors
         --RAISE NOTICE 'v:%',array(SELECT val FROM v ORDER BY id)::numeric(64,32)[];
 
+        --orthogonalize against two previous basis vectors
         EXECUTE zerovector('tmp1',n);
         EXECUTE zerovector('tmp2',n);
         EXECUTE vectorcopy(format('v%s',i-1),'tmp1');
@@ -68,8 +73,7 @@ BEGIN
 
         --selective orthogonalize
         isorth:= FALSE;
-        j:=1;
-        LOOP
+        FOR j IN 1..i LOOP
             --if less then orthogonalize
             IF y[i]*abs(ele('q',i,j)) <= sqrt($4)*det('t') THEN
                 isorth=TRUE;
@@ -81,11 +85,6 @@ BEGIN
                 r=vectordot('tmp1','v');
                 EXECUTE vectornummul('tmp1',-r);
                 EXECUTE vectoradd('v','tmp1');
-            END IF;
-
-            j:=j+1;
-            IF j>i THEN
-                EXIT;
             END IF;
         END LOOP;
 
@@ -105,10 +104,6 @@ BEGIN
         EXECUTE vectornummul('v',1/y[i]);
         EXECUTE vectorcopy('v',format('v%s',i+1));
 
-        i:=i+1;
-        IF i>$3 THEN
-            EXIT;
-        END IF;
         RAISE NOTICE ' ';
     END LOOP;
 
@@ -117,17 +112,17 @@ BEGIN
     EXECUTE tridiagonal($3,x,y,'t');
 
     --eigen decomposition
-    EXECUTE eig($3,'t','q','d',$3::int);
+    PERFORM eig($3,'t','q','d',$3::int);
 
     --top k diagonal elements (eigenvalues)
-    k:=array(SELECT val FROM d WHERE sid=did ORDER BY val desc);
+    k:=array(SELECT val FROM d WHERE sid=did ORDER BY abs(val) desc);
 
     EXECUTE format($s$
-        DROP TABLE IF EXISTS %s;
+        CREATE TABLE IF NOT EXISTS %s(id integer,val numeric);
         $s$,$5);
 
     EXECUTE format($s$
-        CREATE TABLE %s(id integer,val numeric);
+        TRUNCATE TABLE %s;
         $s$,$5);
 
     --put k in vector
@@ -136,7 +131,7 @@ BEGIN
         SELECT sid AS id,val AS val 
         FROM %s
         WHERE sid=did
-        ORDER BY val DESC
+        ORDER BY abs(val) DESC
         $s$,$5,'d');
 
     RETURN k;
@@ -145,17 +140,18 @@ $body$ LANGUAGE plpgsql;
 
 /*
  * qr decomposition
+ * some bugs / replaced by bisection().
  */
 CREATE OR REPLACE FUNCTION qr(dim bigint,source text,q text) RETURNS VOID AS $body$
 DECLARE 
     r numeric(128,64)[][];
 BEGIN
     EXECUTE format($s$
-        DROP TABLE IF EXISTS %s;
+        CREATE TABLE IF NOT EXISTS %s(sid integer,did integer,val numeric);
         $s$,$3);
 
     EXECUTE format($s$
-        CREATE TABLE %s(sid integer,did integer,val numeric);
+        TRUNCATE TABLE %s;
         $s$,$3);
 
     --compute Q
@@ -203,17 +199,167 @@ END
 $body$ LANGUAGE plpgsql;
 
 /*
+ * bisection
+ * ideas from 
+ * http://www.mathworks.com/matlabcentral/fileexchange/
+ * 38303-linear-algebra-package/content/
+ * Linear%20Algebra%20Methods/
+ */
+CREATE OR REPLACE FUNCTION bisection(dim bigint,source text) RETURNS numeric[] AS $body$
+DECLARE
+    d numeric[];
+    od numeric[];
+    odsqr numeric[];
+    m1 integer;
+    m2 integer;
+    emin numeric;
+    emax numeric;
+    h numeric;
+    errBnd numeric;
+    e numeric[];
+    wu numeric[];
+    eps numeric;
+    eps1 numeric;
+    its numeric;
+    e0 numeric;
+    eu numeric;
+    e1 numeric;
+    a numeric;
+    q numeric;
+    i integer;
+    k integer;
+BEGIN
+    EXECUTE format($s$
+        SELECT array_agg(u.val)
+        FROM (
+            SELECT tmp.val
+            FROM %s AS tmp
+            WHERE tmp.sid=tmp.did
+            ORDER BY tmp.sid
+        ) AS u
+        $s$,$2) INTO d;
+
+    EXECUTE format($s$
+        SELECT array_agg(u.val)
+        FROM (
+            SELECT tmp.val
+            FROM %s AS tmp
+            WHERE tmp.sid=tmp.did+1
+            ORDER BY tmp.sid
+        ) AS u
+        $s$,$2) INTO od;
+
+    od[0]:=0;
+
+    FOR i IN 0..dim-1 LOOP
+        odsqr[i]:=od[i]*od[i];
+    END LOOP;
+    
+    emin:=d[dim]-abs(od[dim-1]);
+    emax:=d[dim]+abs(od[dim-1]);
+
+    eps:=0.000000000000000000000000001;
+    eps1:=0.000001;
+
+    FOR rev IN 1..dim-1 LOOP
+        i:=dim-rev;
+        h:=abs(od[i-1])+abs(od[i]);
+        
+        IF (d[i]+h)>emax THEN
+            emax:=d[i]+h;
+        END IF;
+
+        IF (d[i]-h)<emin THEN
+            emin:=d[i]-h;
+        END IF;
+    END LOOP;
+
+    IF (emin+emax)>0 THEN
+        errBnd:=eps*emax;
+    ELSE
+        errBnd:=eps*(-emin);
+    END IF;
+
+    --if (eps1 <= 0)
+        --eps1 = errBnd;
+
+    errBnd:=0.5*eps1+7*errBnd;
+    e0:=emax;
+    --wu = zeros(m2,1);
+    --e = zeros(m2,1);
+    FOR i IN 1..dim LOOP
+        wu[i]:=emin;
+        e[i]:=emax;
+    END LOOP;
+
+    its := 0;
+    FOR rev IN 1..dim LOOP
+        k:= dim+1-rev;
+        eu := emin;
+        FOR rev2 IN 1..k LOOP
+            i:=k+1-rev2;
+            IF eu < wu[i] THEN
+                eu := wu[i];
+                EXIT;
+            END IF;
+        END LOOP;
+
+        IF e0 > e[k] THEN
+            e0 := e[k];
+        END IF;
+
+        WHILE (e0 - eu) > 2 * eps * (abs(eu) + abs(e0)) + eps1 LOOP
+            e1 := (eu+e0)/2;
+            its := its + 1;
+            a := 0;
+            q := 1;
+            --for i := 1:n
+            FOR i IN 1..dim LOOP
+                if q != 0 then
+                    q := d[i] - e1 - odSqr[i-1] / q;
+                else
+                    q := d[i] - e1 - abs(od[i-1]) / eps;
+                end if;
+                if q < 0 then
+                    a := a + 1;
+                end if;
+            end loop;
+            if a < k then
+                if a < 1 then
+                    eu := e1;
+                    wu[1] := e1;
+                else
+                    eu := e1;
+                    wu[a+1] := e1;
+                    if (e[a] > e1) then
+                        e[a] := e1;
+                    end if;
+                end if;
+            else
+                e0 := e1;
+            end if;
+        end loop;
+        e[k] := (e0 + eu) / 2;
+    end loop;
+
+    RETURN e;
+END
+$body$ LANGUAGE plpgsql;
+
+/*
  * do eig decomposition
  */
-CREATE OR REPLACE FUNCTION eig(dim bigint,source text,q text,d text,k integer) RETURNS VOID AS $body$
+CREATE OR REPLACE FUNCTION eig(dim bigint,source text,q text,d text,k integer) RETURNS numeric[] AS $body$
+DECLARE
+    e numeric[];
 BEGIN
     --create d
     EXECUTE format($s$
-        DROP TABLE IF EXISTS %s;
+        CREATE TABLE IF NOT EXISTS %s(sid integer,did integer,val numeric);
         $s$,$4);
 
     EXECUTE format($s$
-        CREATE TABLE %s(sid integer,did integer,val numeric);
+        TRUNCATE TABLE %s;
         $s$,$4);
 
     --copy source to d
@@ -223,17 +369,28 @@ BEGIN
         FROM %s;
         $s$,$4,$2);
 
+    /*
     --iteration to get d
-    --TODO
+    --not accurate, so deprecated
     FOR i IN 1..50 LOOP
+        RAISE NOTICE 'qr round:%',i;
         PERFORM qr($1,$4,$3);
 
         PERFORM matrixmulr($4,$3,0);
         PERFORM matrixmull($3,$4,1);
     END LOOP;
+    */
+    e:=bisection($1,$4);
 
-    --compute real q
-    --TODO
+    --insert into d;
+    FOR i IN 1..dim LOOP
+        EXECUTE format($s$
+            INSERT INTO %s
+            VALUES($1,$1,$2)
+            $s$,$4) USING i,e[i];
+    END LOOP;
+    
+    RETURN e;
 END
 $body$ LANGUAGE plpgsql;
 
@@ -245,11 +402,11 @@ DECLARE
     id numeric[];
 BEGIN
     EXECUTE format($s$
-        DROP TABLE IF EXISTS %s;
+        CREATE TABLE IF NOT EXISTS %s(sid integer,did integer,val numeric);
         $s$,$4);
 
     EXECUTE format($s$
-        CREATE TABLE %s(sid integer,did integer,val numeric);
+        TRUNCATE TABLE %s;
         $s$,$4);
 
     --init id
@@ -298,11 +455,11 @@ $body$ LANGUAGE plpgsql;
 CREATE OR REPLACE FUNCTION new_rand_vector(dim bigint,text) RETURNS VOID AS $body$
 BEGIN
     EXECUTE format($s$
-        DROP TABLE IF EXISTS %s;
+        CREATE TABLE IF NOT EXISTS %s(id integer,val numeric);
         $s$,$2);
 
     EXECUTE format($s$
-        CREATE TABLE %s(id integer,val numeric);
+        TRUNCATE TABLE %s;
         $s$,$2);
 
     --insert

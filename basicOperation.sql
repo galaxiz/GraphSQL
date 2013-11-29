@@ -227,11 +227,11 @@ DECLARE
     i bigint:=1;
 BEGIN
     EXECUTE format($s$
-        DROP TABLE IF EXISTS %s;
+        CREATE TABLE IF NOT EXISTS %s(id int,val numeric);
         $s$,$1);
 
     EXECUTE format($s$
-        CREATE TABLE %s(id int,val numeric);
+        TRUNCATE TABLE %s;
         $s$,$1);
 
     LOOP
@@ -289,4 +289,3 @@ BEGIN
         $s$,$3,$1) USING $2;
 END
 $body$ LANGUAGE plpgsql;
-

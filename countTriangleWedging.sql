@@ -16,9 +16,8 @@ DECLARE
     r bigint; --randomly chosen id (row)
     row_affected bigint;
     wedge bigint := 0; --wedge number in samples
-    s1 bigint; --wedge end point 1
-    s2 bigint; --wedge end point 2
     c bigint; --count of chosen
+    sa numeric[];
 BEGIN
     --init
     DROP TABLE IF EXISTS ischosen;
@@ -110,7 +109,6 @@ BEGIN
         --IF row_affected!=0 THEN
         IF c IS NOT NULL THEN
             LOOP
-                --s1
                 /*
                 EXECUTE format(
                     'SELECT did
@@ -126,47 +124,18 @@ BEGIN
                     ,$1,$1,r) INTO s1;
                  */
                 EXECUTE format(
-                    'SELECT did
+                    'SELECT array_agg(did)
                     FROM (
                         SELECT did, random() as weight FROM %s as U
                         WHERE U.sid=%s
                         ORDER BY weight
-                        LIMIT 1
+                        LIMIT 2
                     ) as TBL'
-                    ,$1,r) INTO s1;
-
-                --s2
-                LOOP
-                    /*
-                    EXECUTE format(
-                        'SELECT did
-                        FROM (
-                            SELECT did, random() as weight FROM (
-                                SELECT did AS sid,sid AS did FROM %s UNION ALL 
-                                SELECT sid,did FROM %s
-                            ) as U
-                            WHERE U.sid=%s
-                            ORDER BY weight
-                            LIMIT 1
-                        ) as TBL'
-                        ,$1,$1,r) INTO s2;
-                     */
-                    EXECUTE format(
-                        'SELECT did
-                        FROM (
-                            SELECT did, random() as weight FROM %s as U
-                            WHERE U.sid=%s
-                            ORDER BY weight
-                            LIMIT 1
-                        ) as TBL'
-                        ,$1,r) INTO s2;
-                    IF s2!=s1 THEN 
-                        EXIT;
-                    END IF;
-                END LOOP;
+                    ,$1,r) INTO sa;
 
                 --check whether triangle
-                RAISE NOTICE 'check: r:% s1:% s2:%',r,s1,s2;
+                RAISE NOTICE 'check: r:% s1:% s2:%',r,sa[1],sa[2];
+
                 /*
                 EXECUTE format(
                     'SELECT * 
@@ -178,12 +147,12 @@ BEGIN
                     'SELECT * 
                     FROM %s
                     WHERE sid=%s and did=%s'
-                    ,$1,s1,s2,s2,s1);
+                    ,$1,sa[1],sa[2]);
                 GET DIAGNOSTICS row_affected=ROW_COUNT;
 
                 --if triangle
                 IF row_affected!=0 THEN
-                    RAISE NOTICE 'triangle.';
+                    --RAISE NOTICE 'triangle.';
                     wedge:=wedge+1;
                 END IF;
 
@@ -239,7 +208,7 @@ BEGIN
     i:=2;
     LOOP
         vala[i]:=vala[i-1]+vala[i];
-        RAISE NOTICE 'update:%',i;
+        --RAISE NOTICE 'update:%',i;
         i:=i+1;
         IF i>array_length(vala,1) THEN
             EXIT;
@@ -275,4 +244,3 @@ BEGIN
     */
 END
 $$ LANGUAGE plpgsql;
-
